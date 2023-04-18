@@ -2,6 +2,8 @@
 set IncludeDirectories= ^
     /Iw:\code ^
     /Iw:\extern\glfw\include ^
+    /Iw:\extern\glm ^
+    /Iw:\extern\stb ^
     /Iw:\extern\glad\include
 
 set LibraryDirectories= ^
