@@ -1,7 +1,5 @@
 #pragma once
 
-#define GLSL(x) "#version 330 core\n" #x
-
 enum attribute
 {
     ATTRIB_POSITION,
@@ -21,7 +19,6 @@ struct render_batch
     f32 *TexCoords;
     s32 VertexCount;
     s32 MaxVertexCount;
-    u32 *Indices;
 
     GLenum Mode;
 };
@@ -33,4 +30,28 @@ struct render_state
     render_batch *Batch;
     glm::mat4 Projection;
     glm::mat4 ModelView;
+};
+
+struct bitmap_font
+{
+    s32 CharWidth;
+    s32 CharHeight;
+    s32 Columns;
+    s32 Rows;
+    GLuint TextureHandle;
+};
+
+struct bitmap_font_vertex
+{
+    glm::vec3 Position;
+    glm::vec2 UV;
+    glm::vec4 Color;
+};
+
+struct bitmap_font_renderer
+{
+    GLuint Vbo;
+    GLuint Vao;
+    GLuint Program;
+    bitmap_font_vertex *Vertices;
 };

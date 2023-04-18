@@ -1,3 +1,5 @@
+#define GLSL(x) "#version 330 core\n" #x
+
 global render_state RenderState;
 
 internal GLuint CreateShader(const char* Code, GLenum Type)
@@ -74,7 +76,7 @@ global GLuint CreateShaderProgram()
 
         void main()
         {
-            FragColor = texture(Texture, TexCoord) * Color;
+            FragColor = Color;
         }
     );
 
@@ -92,7 +94,6 @@ global GLuint CreateShaderProgram()
 
     return Program;
 }
-
 
 global render_batch R_CreateRenderBatch(s32 MaxVertexCount)
 {

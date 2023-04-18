@@ -31,8 +31,8 @@ typedef double f64;
 
 #include "renderer.cpp"
 
-global s32 WindowWidth = 640;
-global s32 WindowHeight = 480;
+global s32 WindowWidth = 1280;
+global s32 WindowHeight = 720;
 
 struct rect
 {
@@ -189,7 +189,7 @@ int main(int Argc, char* Argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 
-    Window = glfwCreateWindow(WindowWidth, WindowHeight, "Hello World", NULL, NULL);
+    Window = glfwCreateWindow(WindowWidth, WindowHeight, "Batch Renderer 2D - OpenGL 3.3", NULL, NULL);
 
     if (!Window)
     {
@@ -201,14 +201,13 @@ int main(int Argc, char* Argv)
     gladLoadGL(glfwGetProcAddress);
 
     render_batch RenderBatch = R_CreateRenderBatch(1024);
-    RenderBatch.Texture = LoadTexture("tileset.png");
     RenderState.Program = CreateShaderProgram();
     RenderState.Batch = &RenderBatch;
     RenderState.Projection = glm::ortho(0.0f, (f32)WindowWidth, (f32)WindowHeight, 0.0f, -1.0f, 1.0f);
     RenderState.ModelView = glm::mat4(1.0f);
     RenderState.DrawCalls = 0;
 
-    s32 MovingRectsCount = 1000;
+    s32 MovingRectsCount = 10000;
     moving_rect *MovingRects = (moving_rect*)malloc(sizeof *MovingRects * MovingRectsCount);
 
     for (s32 i = 0; i < MovingRectsCount; i++)
@@ -224,8 +223,12 @@ int main(int Argc, char* Argv)
 
         MovingRects[i].Position.x = GenerateRandomNumber() * (WindowWidth / 32.0f);
         MovingRects[i].Position.y = GenerateRandomNumber() * (WindowHeight / 32.0f);
-        MovingRects[i].Color = glm::vec4(1.0f);
-        MovingRects[i].Scale = 0.5f;
+        MovingRects[i].Color = glm::vec4(
+            glm::clamp(GenerateRandomNumber(), 0.5f, 1.0f),
+            glm::clamp(GenerateRandomNumber(), 0.5f, 1.0f),
+            glm::clamp(GenerateRandomNumber(), 0.5f, 1.0f),
+            1.0f);
+        MovingRects[i].Scale = 0.25f;
         MovingRects[i].Speed = 10.0f;
     }
 
