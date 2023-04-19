@@ -33,6 +33,8 @@ typedef double f64;
 
 global s32 WindowWidth = 1280;
 global s32 WindowHeight = 720;
+global s32 MouseX = 0;
+global s32 MouseY = 0;
 
 struct rect
 {
@@ -42,13 +44,6 @@ struct rect
     s32 Height;
 };
 
-struct color
-{
-    u8 R;
-    u8 G;
-    u8 B;
-    u8 A;
-};
 
 struct texture
 {
@@ -56,6 +51,8 @@ struct texture
     s32 Width;
     s32 Height;
 };
+
+
 
 GLuint LoadTexture(const char* Filename)
 {
@@ -77,35 +74,6 @@ GLuint LoadTexture(const char* Filename)
 
     stbi_image_free(Pixels);
     return Texture;
-}
-
-glm::vec4 ColorRangeZeroOne(color Color)
-{
-    glm::vec4 Result = glm::vec4(Color.R, Color.G, Color.B, Color.A);
-    Result /= 255.0f;
-    return Result;
-}
-
-void DrawRect(s32 X, s32 Y, s32 W, s32 H, color Color)
-{
-    glm::vec4 RangedColor = ColorRangeZeroOne(Color);
-    
-    glm::vec3 Position1 = glm::vec3(X    , Y    , 0);
-    glm::vec3 Position2 = glm::vec3(X    , Y + H, 0);
-    glm::vec3 Position3 = glm::vec3(X + W, Y + H, 0);
-    glm::vec3 Position4 = glm::vec3(X + W, Y    , 0);
-
-    glm::vec2 UV1 = glm::vec2(0.0f, 0.0f);
-    glm::vec2 UV2 = glm::vec2(0.0f, 1.0f);
-    glm::vec2 UV3 = glm::vec2(1.0f, 1.0f);
-    glm::vec2 UV4 = glm::vec2(1.0f, 0.0f);
-
-    R_PushVertex(Position1, UV1, RangedColor);
-    R_PushVertex(Position2, UV2, RangedColor);
-    R_PushVertex(Position3, UV3, RangedColor);
-    R_PushVertex(Position1, UV1, RangedColor);
-    R_PushVertex(Position3, UV3, RangedColor);
-    R_PushVertex(Position4, UV4, RangedColor);
 }
 
 struct moving_rect
@@ -132,6 +100,21 @@ internal void UpdateMovingRects(moving_rect* Rects, s32 RectCount, f32 DeltaTime
 
         f32 WorldWidth = (WindowWidth / 32.0f);
         f32 WorldHeight = (WindowHeight / 32.0f);
+        f32 WorldMouseX = (MouseX / 32.0f);
+        f32 WorldMouseY = (MouseY / 32.0f);
+
+        glm::vec2 MousePosition = glm::vec2(WorldMouseX, WorldMouseY);
+        glm::vec2 LineMouseRect = Rects[i].Position - MousePosition;
+        f32 MaxDistance = 3.0f;
+
+        f32 Distance2 = glm::dot(LineMouseRect, LineMouseRect);
+
+        if (Distance2 < MaxDistance*MaxDistance)
+        {
+            glm::vec2 Dir = glm::normalize(LineMouseRect);
+            Rects[i].Dir = Dir;
+        }
+
         if (Rects[i].Position.x < 0)
         {
             Rects[i].Position.x = 0.0f;
@@ -161,11 +144,9 @@ internal void DrawMovingRects(moving_rect* Rects, s32 RectCount)
 {
     for (s32 i = 0; i < RectCount; i++)
     {
-        DrawRect(
+        DrawPoint(
             (s32)(Rects[i].Position.x * 32.0f),
             (s32)(Rects[i].Position.y * 32.0f),
-            (s32)(Rects[i].Scale * 32.0f),
-            (s32)(Rects[i].Scale * 32.0f),
             color{
                 (u8)(Rects[i].Color.r * 255.0f),
                 (u8)(Rects[i].Color.g * 255.0f),
@@ -200,14 +181,15 @@ int main(int Argc, char* Argv)
     glfwMakeContextCurrent(Window);
     gladLoadGL(glfwGetProcAddress);
 
-    render_batch RenderBatch = R_CreateRenderBatch(1024);
-    RenderState.Program = CreateShaderProgram();
-    RenderState.Batch = &RenderBatch;
-    RenderState.Projection = glm::ortho(0.0f, (f32)WindowWidth, (f32)WindowHeight, 0.0f, -1.0f, 1.0f);
-    RenderState.ModelView = glm::mat4(1.0f);
-    RenderState.DrawCalls = 0;
 
-    s32 MovingRectsCount = 10000;
+    glfwSetCursorPosCallback(Window, [](GLFWwindow* Widow, double PosX, double PosY) {
+        MouseX = (s32)PosX;
+        MouseY = (s32)PosY;
+    });
+
+    InitRenderer(WindowWidth, WindowHeight);
+
+    s32 MovingRectsCount = 100000;
     moving_rect *MovingRects = (moving_rect*)malloc(sizeof *MovingRects * MovingRectsCount);
 
     for (s32 i = 0; i < MovingRectsCount; i++)
@@ -224,14 +206,13 @@ int main(int Argc, char* Argv)
         MovingRects[i].Position.x = GenerateRandomNumber() * (WindowWidth / 32.0f);
         MovingRects[i].Position.y = GenerateRandomNumber() * (WindowHeight / 32.0f);
         MovingRects[i].Color = glm::vec4(
-            glm::clamp(GenerateRandomNumber(), 0.5f, 1.0f),
-            glm::clamp(GenerateRandomNumber(), 0.5f, 1.0f),
-            glm::clamp(GenerateRandomNumber(), 0.5f, 1.0f),
+            glm::clamp(GenerateRandomNumber(), 0.7f, 1.0f),
+            glm::clamp(GenerateRandomNumber(), 0.7f, 1.0f),
+            glm::clamp(GenerateRandomNumber(), 0.7f, 1.0f),
             1.0f);
         MovingRects[i].Scale = 0.25f;
         MovingRects[i].Speed = 10.0f;
     }
-
 
     f64 LastTime = glfwGetTime();
     s32 FramesPerSecond = 0;
@@ -245,23 +226,12 @@ int main(int Argc, char* Argv)
         UpdateMovingRects(MovingRects, MovingRectsCount, DeltaTime);
         
         RenderState.DrawCalls = 0;
-        glClear(GL_COLOR_BUFFER_BIT);
-        DrawMovingRects(MovingRects, MovingRectsCount);
-        R_Flush();
         
-        static f32 TotalTime;
-        TotalTime += DeltaTime;
-        FramesPerSecond += (s32)(1.0 / DeltaTime);
-        NumFrames++;
-
-        if (TotalTime > 1.0f)
-        {
-            printf("DRAW CALLS = %d, FPS = %d\n", RenderState.DrawCalls, FramesPerSecond / NumFrames);
-            TotalTime = 0.0f;
-            FramesPerSecond = 0;
-            NumFrames = 0;
-        }
-
+        BeginFrame();
+        ClearScreen(COLOR_BLACK);
+        DrawMovingRects(MovingRects, MovingRectsCount);
+        EndFrame();
+        
         glfwSwapBuffers(Window);
         glfwPollEvents();
     }
