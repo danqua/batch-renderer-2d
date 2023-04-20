@@ -30,7 +30,8 @@ struct vertex_buffer
     f32 *Colors;
     u32 *Indices;
     u64 Capacity;
-    u64 VertexCount;
+    u32 VertexCount;
+    u32 ElementCount;
     GLenum Usage;
 };
 

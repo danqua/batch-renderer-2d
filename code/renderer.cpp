@@ -29,7 +29,8 @@ internal vertex_buffer CreateVertexBuffer(u64 Capacity, GLenum Usage)
     Buffer.Positions = (f32*)malloc(sizeof(f32) * 3 * Capacity);
     Buffer.TexCoords = (f32*)malloc(sizeof(f32) * 2 * Capacity);
     Buffer.Colors = (f32*)malloc(sizeof(f32) * 4 * Capacity);
-    
+    Buffer.Indices = (u32*)malloc(sizeof(u32) * Capacity);
+
     glGenBuffers(4, Buffer.Vbos);
     glGenVertexArrays(1, &Buffer.Vao);
     glBindVertexArray(Buffer.Vao);
@@ -52,9 +53,9 @@ internal vertex_buffer CreateVertexBuffer(u64 Capacity, GLenum Usage)
     glEnableVertexAttribArray(ATTRIB_COLOR);
     glVertexAttribPointer(ATTRIB_COLOR, 4, GL_FLOAT, GL_FALSE, 0, 0);
     
-    // Idices
+    // Indices
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Buffer.Vbos[3]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * Capacity, 0, Usage);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * 6 * Capacity, 0, Usage);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -168,8 +169,21 @@ internal void PushVertex(render_batch* Batch, f32* Position, f32* TexCoord, f32*
 {
     memcpy(Batch->Buffer.Positions + Batch->Buffer.VertexCount * 3, Position, sizeof(f32) * 3);
     memcpy(Batch->Buffer.TexCoords + Batch->Buffer.VertexCount * 2, TexCoord, sizeof(f32) * 2);
+    memcpy(Batch->Buffer.Colors + Batch->Buffer.VertexCount * 4, Color, sizeof(f32) * 4);
+    Batch->Buffer.VertexCount++;
+}
+
+internal void PushVertex(render_batch* Batch, f32* Position, f32* Color)
+{
+    memcpy(Batch->Buffer.Positions + Batch->Buffer.VertexCount * 3, Position, sizeof(f32) * 3);
     memcpy(Batch->Buffer.Colors    + Batch->Buffer.VertexCount * 4, Color, sizeof(f32) * 4);
     Batch->Buffer.VertexCount++;
+}
+
+internal void PushIndex(render_batch* Batch, u32* Indices, u64 Count)
+{
+    memcpy(Batch->Buffer.Indices + Batch->Buffer.ElementCount, Indices, sizeof(u32) * Count);
+    Batch->Buffer.ElementCount += Count;
 }
 
 internal void FlushRenderBatch(render_batch* Batch)
@@ -185,8 +199,12 @@ internal void FlushRenderBatch(render_batch* Batch)
     
     glBindBuffer(GL_ARRAY_BUFFER, Batch->Buffer.Vbos[ATTRIB_COLOR]);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(f32) * 4 * Batch->Buffer.VertexCount, (const void*)Batch->Buffer.Colors);
+    
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Batch->Buffer.Vbos[3]);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(u32) * 6 * Batch->Buffer.ElementCount, (const void*)Batch->Buffer.Indices);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     // Perform rendition
     glUseProgram(RenderState.Program);
@@ -199,8 +217,18 @@ internal void FlushRenderBatch(render_batch* Batch)
 
     glBindVertexArray(Batch->Buffer.Vao);
 
-    glDrawArrays(Batch->Mode, 0, Batch->Buffer.VertexCount);
+    if (Batch->Mode == GL_TRIANGLES)
+    {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Batch->Buffer.Vbos[3]);
+        glDrawElements(Batch->Mode, Batch->Buffer.ElementCount, GL_UNSIGNED_INT, 0);
+    }
+    else
+    {
+        glDrawArrays(Batch->Mode, 0, Batch->Buffer.VertexCount);
+    }
+
     Batch->Buffer.VertexCount = 0;
+    Batch->Buffer.ElementCount = 0;
 }
 
 /*
@@ -276,4 +304,70 @@ global void DrawLine(s32 X1, s32 Y1, s32 X2, s32 Y2, color Color)
     glm::vec4 VertColor = ColorRangeZeroOne(Color);
     PushVertex(RenderBatch, &VertPosition1[0], &VertTexCoord[0], &VertColor[0]);
     PushVertex(RenderBatch, &VertPosition2[0], &VertTexCoord[0], &VertColor[0]);
+}
+
+global void DrawRectLines(s32 X, s32 Y, s32 Width, s32 Height, color Color)
+{
+    render_batch* RenderBatch = &RenderState.RenderBatches[R_LINES];
+
+    if (RenderBatch->Buffer.VertexCount + 8 >= RenderBatch->Buffer.Capacity)
+    {
+        FlushRenderBatch(RenderBatch);
+    }
+
+    glm::ivec2 Factors[] = {
+        { 0, 0 }, { 1, 0 },
+        { 1, 0 }, { 1, 1 },
+        { 1, 1 }, { 0, 1 },
+        { 0, 1 }, { 0, 0 }
+    };
+
+    for (s32 FactorIndex = 0; FactorIndex < 8; FactorIndex += 2)
+    {
+        s32 X1 = X + Width  * Factors[FactorIndex + 0][0];
+        s32 Y1 = Y + Height * Factors[FactorIndex + 0][1];
+        s32 X2 = X + Width  * Factors[FactorIndex + 1][0];
+        s32 Y2 = Y + Height * Factors[FactorIndex + 1][1];
+
+        DrawLine(X1, Y1, X2, Y2, Color);
+    }
+}
+
+global void DrawRect(s32 X, s32 Y, s32 Width, s32 Height, color Color)
+{
+    render_batch* RenderBatch = &RenderState.RenderBatches[R_TRIANGLES];
+
+    if (RenderBatch->Buffer.VertexCount + 4 >= RenderBatch->Buffer.Capacity)
+    {
+        FlushRenderBatch(RenderBatch);
+    }
+
+    glm::vec3 Vertices[] = {
+        glm::vec3(X, Y, RenderState.CurrentDepth),
+        glm::vec3(X, Y + Height, RenderState.CurrentDepth),
+        glm::vec3(X + Width, Y + Height, RenderState.CurrentDepth),
+        glm::vec3(X + Width, Y, RenderState.CurrentDepth)
+    };
+
+    glm::vec4 Colors[] = {
+        ColorRangeZeroOne(Color),
+        ColorRangeZeroOne(Color),
+        ColorRangeZeroOne(Color),
+        ColorRangeZeroOne(Color)
+    };
+
+    u32 Indices[] = {
+        RenderBatch->Buffer.VertexCount + 0,
+        RenderBatch->Buffer.VertexCount + 1,
+        RenderBatch->Buffer.VertexCount + 2,
+        RenderBatch->Buffer.VertexCount + 0,
+        RenderBatch->Buffer.VertexCount + 2,
+        RenderBatch->Buffer.VertexCount + 3
+    };
+
+    PushVertex(RenderBatch, &Vertices[0][0], &Colors[0][0]);
+    PushVertex(RenderBatch, &Vertices[1][0], &Colors[1][0]);
+    PushVertex(RenderBatch, &Vertices[2][0], &Colors[2][0]);
+    PushVertex(RenderBatch, &Vertices[3][0], &Colors[3][0]);
+    PushIndex(RenderBatch, Indices, 6);
 }
