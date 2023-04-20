@@ -1,7 +1,7 @@
 ## Simple 2D Batch Renderer
 
 ![Preview](assets/preview_100k_points.jpeg)
-*100k Points rendererd bouncing inside the window and cursor running at 600+ fps with /O2*
+*Rendering 100k Points bouncing inside the window and from the cursor, running at 600+ fps with /O2*
 
 This is a super simple 2D batch renderer using OpenGL 3.3.
 
