@@ -66,6 +66,33 @@ internal vertex_buffer CreateVertexBuffer(u64 Capacity, GLenum Usage)
 
 /*
 ================================
+Texture
+================================
+*/
+global GLuint LoadTexture(const char* Filename)
+{
+    s32 Width = 0;
+    s32 Height = 0;
+    s32 Ignore = 0;
+
+    u8* Pixels = stbi_load(Filename, &Width, &Height, &Ignore, STBI_rgb_alpha);
+
+    GLuint Texture;
+    glGenTextures(1, &Texture);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    stbi_image_free(Pixels);
+    return Texture;
+}
+
+/*
+================================
 Shader
 ================================
 */
@@ -268,6 +295,7 @@ global void EndFrame()
         FlushRenderBatch(RenderState.RenderBatches + BatchIndex);
     }
 }
+
 
 global void ClearScreen(color Color)
 {

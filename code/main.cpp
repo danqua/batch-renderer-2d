@@ -36,46 +36,6 @@ global s32 WindowHeight = 720;
 global s32 MouseX = 0;
 global s32 MouseY = 0;
 
-struct rect
-{
-    s32 X;
-    s32 Y;
-    s32 Width;
-    s32 Height;
-};
-
-
-struct texture
-{
-    GLuint ID;
-    s32 Width;
-    s32 Height;
-};
-
-
-
-GLuint LoadTexture(const char* Filename)
-{
-    s32 Width = 0;
-    s32 Height = 0;
-    s32 Ignore = 0;
-
-    u8* Pixels = stbi_load(Filename, &Width, &Height, &Ignore, STBI_rgb_alpha);
-
-    GLuint Texture;
-    glGenTextures(1, &Texture);
-    glBindTexture(GL_TEXTURE_2D, Texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    stbi_image_free(Pixels);
-    return Texture;
-}
-
 struct moving_rect
 {
     glm::vec2 Position;
@@ -83,7 +43,6 @@ struct moving_rect
     glm::vec4 Color;
     f32 Scale;
     f32 Speed;
-
 };
 
 internal f32 GenerateRandomNumber()
@@ -144,11 +103,9 @@ internal void DrawMovingRects(moving_rect* Rects, s32 RectCount)
 {
     for (s32 i = 0; i < RectCount; i++)
     {
-        DrawRect(
+        DrawPoint(
             (s32)(Rects[i].Position.x * 32.0f),
             (s32)(Rects[i].Position.y * 32.0f),
-            (s32)(Rects[i].Scale * 32.0f),
-            (s32)(Rects[i].Scale * 32.0f),
             color{
                 (u8)(Rects[i].Color.r * 255.0f),
                 (u8)(Rects[i].Color.g * 255.0f),
@@ -192,7 +149,7 @@ int main(int Argc, char* Argv)
 
     InitRenderer(WindowWidth, WindowHeight);
 
-    s32 MovingRectsCount = 200000;
+    s32 MovingRectsCount = 1000000;
     moving_rect *MovingRects = (moving_rect*)malloc(sizeof *MovingRects * MovingRectsCount);
 
     for (s32 i = 0; i < MovingRectsCount; i++)
@@ -242,9 +199,7 @@ int main(int Argc, char* Argv)
         }
 
         UpdateMovingRects(MovingRects, MovingRectsCount, DeltaTime);
-        
-        RenderState.DrawCalls = 0;
-        
+                
         BeginFrame();
         ClearScreen(COLOR_BLACK);
         DrawMovingRects(MovingRects, MovingRectsCount);

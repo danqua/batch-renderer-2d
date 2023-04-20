@@ -35,19 +35,10 @@ struct vertex_buffer
     GLenum Usage;
 };
 
-struct draw_call
-{
-    u32 Vao;
-    u32 Program;
-    u32 Texture;
-    u32 VertexCount;
-    u32 VertexAlignment;
-    GLenum Mode;
-};
-
 struct render_batch
 {
     GLenum Mode;
+    GLuint Texture;
     vertex_buffer Buffer;
 };
 
@@ -61,15 +52,11 @@ enum render_mode
 
 struct render_state
 {
-    s32 DrawCalls;
-    render_batch *Batch;
-
     s32 FramebufferWidth;
     s32 FramebufferHeight;
     GLuint Program;
     glm::mat4 Projection;
     glm::mat4 ModelView;
-
     f32 CurrentDepth;
     render_batch RenderBatches[R_MODE_COUNT];
 };
