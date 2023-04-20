@@ -179,6 +179,7 @@ int main(int Argc, char* Argv)
     }
 
     glfwMakeContextCurrent(Window);
+    glfwSwapInterval(0);
     gladLoadGL(glfwGetProcAddress);
 
 
@@ -215,14 +216,29 @@ int main(int Argc, char* Argv)
     }
 
     f64 LastTime = glfwGetTime();
+    f64 Timer = 0;
+
     s32 FramesPerSecond = 0;
     s32 NumFrames = 0;
+
     while (!glfwWindowShouldClose(Window))
     {
         f64 ElapsedTime = glfwGetTime() - LastTime;
         f64 DeltaTime = ElapsedTime;
         LastTime = glfwGetTime();
-        
+        Timer += DeltaTime;
+        NumFrames++;
+        FramesPerSecond += (s32)(1.0 / DeltaTime);
+
+        if (Timer > 1.0f)
+        {
+            FramesPerSecond /= NumFrames;
+            printf("%d\n", FramesPerSecond);
+            Timer = 0;
+            NumFrames = 0;
+            FramesPerSecond = 0;
+        }
+
         UpdateMovingRects(MovingRects, MovingRectsCount, DeltaTime);
         
         RenderState.DrawCalls = 0;
@@ -231,6 +247,8 @@ int main(int Argc, char* Argv)
         ClearScreen(COLOR_BLACK);
         DrawMovingRects(MovingRects, MovingRectsCount);
         EndFrame();
+
+
         
         glfwSwapBuffers(Window);
         glfwPollEvents();
