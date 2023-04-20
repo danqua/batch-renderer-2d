@@ -105,7 +105,7 @@ internal void UpdateMovingRects(moving_rect* Rects, s32 RectCount, f32 DeltaTime
 
         glm::vec2 MousePosition = glm::vec2(WorldMouseX, WorldMouseY);
         glm::vec2 LineMouseRect = Rects[i].Position - MousePosition;
-        f32 MaxDistance = 3.0f;
+        f32 MaxDistance = 2.0f;
 
         f32 Distance2 = glm::dot(LineMouseRect, LineMouseRect);
 
@@ -144,9 +144,11 @@ internal void DrawMovingRects(moving_rect* Rects, s32 RectCount)
 {
     for (s32 i = 0; i < RectCount; i++)
     {
-        DrawPoint(
+        DrawRect(
             (s32)(Rects[i].Position.x * 32.0f),
             (s32)(Rects[i].Position.y * 32.0f),
+            (s32)(Rects[i].Scale * 32.0f),
+            (s32)(Rects[i].Scale * 32.0f),
             color{
                 (u8)(Rects[i].Color.r * 255.0f),
                 (u8)(Rects[i].Color.g * 255.0f),
@@ -190,7 +192,7 @@ int main(int Argc, char* Argv)
 
     InitRenderer(WindowWidth, WindowHeight);
 
-    s32 MovingRectsCount = 100000;
+    s32 MovingRectsCount = 200000;
     moving_rect *MovingRects = (moving_rect*)malloc(sizeof *MovingRects * MovingRectsCount);
 
     for (s32 i = 0; i < MovingRectsCount; i++)
