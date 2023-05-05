@@ -16,5 +16,5 @@ set SourceFiles= ^
 pushd ..\build
 rem /Od disables optimizations, to speed compilation and simplify debugging
 rem /O2 sets a combination of optimizations that optimize code for maximum speed
-cl /O2 /Zi /FC /EHsc %SourceFiles% glfw3.lib User32.lib Gdi32.lib Shell32.lib %IncludeDirectories% /Febatch.exe /link %LibraryDirectories% /SUBSYSTEM:CONSOLE
+cl /Od /Zi /FC /EHsc %SourceFiles% glfw3.lib User32.lib Gdi32.lib Shell32.lib %IncludeDirectories% /Febatch.exe /link %LibraryDirectories% /SUBSYSTEM:CONSOLE
 popd

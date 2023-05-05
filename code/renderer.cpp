@@ -8,9 +8,9 @@ Utils
 ================================
 */
 
-global glm::vec4 ColorRangeZeroOne(color Color)
+global vec4 ColorRangeZeroOne(color Color)
 {
-    glm::vec4 Result = glm::vec4(Color.R, Color.G, Color.B, Color.A);
+    vec4 Result = vec4(Color.R, Color.G, Color.B, Color.A);
     Result /= 255.0f;
     return Result;
 }
@@ -69,7 +69,7 @@ internal vertex_buffer CreateVertexBuffer(u64 Capacity, GLenum Usage)
 Texture
 ================================
 */
-global GLuint LoadTexture(const char* Filename)
+global texture LoadTexture(const char* Filename)
 {
     s32 Width = 0;
     s32 Height = 0;
@@ -77,7 +77,7 @@ global GLuint LoadTexture(const char* Filename)
 
     u8* Pixels = stbi_load(Filename, &Width, &Height, &Ignore, STBI_rgb_alpha);
 
-    GLuint Texture;
+    u32 Texture;
     glGenTextures(1, &Texture);
     glBindTexture(GL_TEXTURE_2D, Texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Width, Height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Pixels);
@@ -88,7 +88,12 @@ global GLuint LoadTexture(const char* Filename)
     glBindTexture(GL_TEXTURE_2D, 0);
 
     stbi_image_free(Pixels);
-    return Texture;
+
+    texture Result = {};
+    Result.Width = Width;
+    Result.Height = Height;
+    Result.Handle = Texture;
+    return Result;
 }
 
 /*
@@ -97,9 +102,9 @@ Shader
 ================================
 */
 
-internal GLuint CreateShader(const char* Code, GLenum Type)
+internal u32 CreateShader(const char* Code, GLenum Type)
 {
-    GLuint Shader = glCreateShader(Type);
+    u32 Shader = glCreateShader(Type);
     glShaderSource(Shader, 1, &Code, 0);
     glCompileShader(Shader);
 
@@ -117,9 +122,9 @@ internal GLuint CreateShader(const char* Code, GLenum Type)
     return Shader;
 }
 
-global GLuint CreateProgram(GLuint VertexShader, GLuint FragmentShader)
+global u32 CreateProgram(u32 VertexShader, u32 FragmentShader)
 {
-    GLuint Program = glCreateProgram();
+    u32 Program = glCreateProgram();
     glAttachShader(Program, VertexShader);
     glAttachShader(Program, FragmentShader);
     glLinkProgram(Program);
@@ -141,7 +146,7 @@ global GLuint CreateProgram(GLuint VertexShader, GLuint FragmentShader)
     return Program;
 }
 
-global GLuint CreateShaderProgram()
+global u32 CreateShaderProgram()
 {
     const char* VertexShaderCode = GLSL(
         in vec3 VertPosition;
@@ -167,17 +172,20 @@ global GLuint CreateShaderProgram()
         in vec2 TexCoord;
         out vec4 FragColor;
 
+        uniform float HasTexture;
         uniform sampler2D Texture;
 
         void main()
         {
-            FragColor = Color;
+            FragColor = mix(Color, texture(Texture, TexCoord) * Color, HasTexture);
+            //FragColor = vec4(1.0, 0.0, HasTexture, 1.0);
+            //FragColor = vec4(1.0);
         }
     );
 
-    GLuint VertexShader = CreateShader(VertexShaderCode, GL_VERTEX_SHADER);
-    GLuint FragmentShader = CreateShader(FragmentShaderCode, GL_FRAGMENT_SHADER);
-    GLuint Program = CreateProgram(VertexShader, FragmentShader);
+    u32 VertexShader = CreateShader(VertexShaderCode, GL_VERTEX_SHADER);
+    u32 FragmentShader = CreateShader(FragmentShaderCode, GL_FRAGMENT_SHADER);
+    u32 Program = CreateProgram(VertexShader, FragmentShader);
 
     glBindAttribLocation(Program, ATTRIB_POSITION, "VertPosition");
     glBindAttribLocation(Program, ATTRIB_TEXCOORD, "VertTexCoord");
@@ -191,6 +199,14 @@ global GLuint CreateShaderProgram()
 Render Batch
 ================================
 */
+
+internal void PushVertex(render_batch* Batch, const vec3& Position, const vec2& TexCoord, const vec4& Color)
+{
+    memcpy(Batch->Buffer.Positions + Batch->Buffer.VertexCount * 3, &Position[0], sizeof(vec3));
+    memcpy(Batch->Buffer.TexCoords + Batch->Buffer.VertexCount * 2, &TexCoord[0], sizeof(vec2));
+    memcpy(Batch->Buffer.Colors + Batch->Buffer.VertexCount * 4, &Color[0], sizeof(vec4));
+    Batch->Buffer.VertexCount++;
+}
 
 internal void PushVertex(render_batch* Batch, f32* Position, f32* TexCoord, f32* Color)
 {
@@ -217,18 +233,28 @@ internal void FlushRenderBatch(render_batch* Batch)
 {
     if (!Batch->Buffer.VertexCount) return;
 
+    struct buffer_layout
+    {
+        u64 Size;
+        f32* Data;
+    };
+
+    buffer_layout Layout[] = {
+        { 3, Batch->Buffer.Positions },
+        { 2, Batch->Buffer.TexCoords },
+        { 4, Batch->Buffer.Colors },
+    };
+
     // Update vertex buffers
-    glBindBuffer(GL_ARRAY_BUFFER, Batch->Buffer.Vbos[ATTRIB_POSITION]);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(f32) * 3 * Batch->Buffer.VertexCount, (const void*)Batch->Buffer.Positions);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, Batch->Buffer.Vbos[ATTRIB_TEXCOORD]);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(f32) * 2 * Batch->Buffer.VertexCount, (const void*)Batch->Buffer.TexCoords);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, Batch->Buffer.Vbos[ATTRIB_COLOR]);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(f32) * 4 * Batch->Buffer.VertexCount, (const void*)Batch->Buffer.Colors);
-    
+    for (s32 i = 0; i < ATTRIB_COUNT; i++)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, Batch->Buffer.Vbos[i]);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(f32) * Layout[i].Size * Batch->Buffer.VertexCount, (const void*)Layout[i].Data);
+    }
+
+    // Update index buffer
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Batch->Buffer.Vbos[3]);
-    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(u32) * 6 * Batch->Buffer.ElementCount, (const void*)Batch->Buffer.Indices);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, sizeof(u32) * Batch->Buffer.ElementCount, (const void*)Batch->Buffer.Indices);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -238,9 +264,13 @@ internal void FlushRenderBatch(render_batch* Batch)
 
     GLint ProjectionID = glGetUniformLocation(RenderState.Program, "Projection");
     GLint ModelViewID = glGetUniformLocation(RenderState.Program, "ModelView");
+    GLint HasSamplerID = glGetUniformLocation(RenderState.Program, "HasTexture");
 
     glUniformMatrix4fv(ProjectionID, 1, 0, &RenderState.Projection[0][0]);
     glUniformMatrix4fv(ModelViewID, 1, 0, &RenderState.ModelView[0][0]);
+    glUniform1f(HasSamplerID, (f32)(Batch->Texture != 0));
+
+    glBindTexture(GL_TEXTURE_2D, Batch->Texture);
 
     glBindVertexArray(Batch->Buffer.Vao);
 
@@ -270,11 +300,11 @@ global void InitRenderer(s32 Width, s32 Height)
     RenderState.FramebufferWidth = Width;
     RenderState.FramebufferHeight = Height;
 
-    GLenum DrawModes[] = { GL_POINTS, GL_LINES, GL_TRIANGLES };
+    GLenum DrawModes[] = { GL_POINTS, GL_LINES, GL_TRIANGLES, GL_TRIANGLES };
 
     for (s32 BatchIndex = 0; BatchIndex < R_MODE_COUNT; BatchIndex++)
     {
-        RenderState.RenderBatches[BatchIndex].Buffer = CreateVertexBuffer(RENDER_BATCH_MAX_CAPACITY, GL_DYNAMIC_DRAW);
+        RenderState.RenderBatches[BatchIndex].Buffer = CreateVertexBuffer(RENDER_BATCH_MAX_CAPACITY, GL_STREAM_DRAW);
         RenderState.RenderBatches[BatchIndex].Mode = DrawModes[BatchIndex];
     }
 }
@@ -296,7 +326,6 @@ global void EndFrame()
     }
 }
 
-
 global void ClearScreen(color Color)
 {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -305,45 +334,38 @@ global void ClearScreen(color Color)
 global void DrawPoint(s32 X, s32 Y, color Color)
 {
     render_batch *RenderBatch = &RenderState.RenderBatches[R_POINTS];
-    
     if (RenderBatch->Buffer.VertexCount + 1 >= RenderBatch->Buffer.Capacity)
     {
         FlushRenderBatch(RenderBatch);
     }
-
-    glm::vec3 VertPosition = glm::vec3(X, Y, RenderState.CurrentDepth);
-    glm::vec2 VertTexCoord = glm::vec2(0.0f, 0.0f);
-    glm::vec4 VertColor = ColorRangeZeroOne(Color);
-    PushVertex(RenderBatch, &VertPosition[0], &VertTexCoord[0], &VertColor[0]);
+    vec3 Position = glm::vec3(X, Y, RenderState.CurrentDepth);
+    vec2 TexCoord = glm::vec2(0.0f, 0.0f);
+    PushVertex(RenderBatch, Position, TexCoord, ColorRangeZeroOne(Color));
 }
 
 global void DrawLine(s32 X1, s32 Y1, s32 X2, s32 Y2, color Color)
 {
     render_batch *RenderBatch = &RenderState.RenderBatches[R_LINES];
-
     if (RenderBatch->Buffer.VertexCount + 2 >= RenderBatch->Buffer.Capacity)
     {
         FlushRenderBatch(RenderBatch);
     }
-
-    glm::vec3 VertPosition1 = glm::vec3(X1, Y1, RenderState.CurrentDepth);
-    glm::vec3 VertPosition2 = glm::vec3(X2, Y2, RenderState.CurrentDepth);
-    glm::vec2 VertTexCoord = glm::vec2(0.0f, 0.0f);
-    glm::vec4 VertColor = ColorRangeZeroOne(Color);
-    PushVertex(RenderBatch, &VertPosition1[0], &VertTexCoord[0], &VertColor[0]);
-    PushVertex(RenderBatch, &VertPosition2[0], &VertTexCoord[0], &VertColor[0]);
+    vec3 V1 = vec3(X1, Y1, RenderState.CurrentDepth);
+    vec3 V2 = vec3(X2, Y2, RenderState.CurrentDepth);
+    vec2 TexCoord = vec2(0.0f, 0.0f);
+    PushVertex(RenderBatch, V1, TexCoord, ColorRangeZeroOne(Color));
+    PushVertex(RenderBatch, V2, TexCoord, ColorRangeZeroOne(Color));
 }
 
 global void DrawRectLines(s32 X, s32 Y, s32 Width, s32 Height, color Color)
 {
     render_batch* RenderBatch = &RenderState.RenderBatches[R_LINES];
-
     if (RenderBatch->Buffer.VertexCount + 8 >= RenderBatch->Buffer.Capacity)
     {
         FlushRenderBatch(RenderBatch);
     }
 
-    glm::ivec2 Factors[] = {
+    ivec2 Factors[] = {
         { 0, 0 }, { 1, 0 },
         { 1, 0 }, { 1, 1 },
         { 1, 1 }, { 0, 1 },
@@ -370,19 +392,21 @@ global void DrawRect(s32 X, s32 Y, s32 Width, s32 Height, color Color)
         FlushRenderBatch(RenderBatch);
     }
 
-    glm::vec3 Vertices[] = {
-        glm::vec3(X, Y, RenderState.CurrentDepth),
-        glm::vec3(X, Y + Height, RenderState.CurrentDepth),
-        glm::vec3(X + Width, Y + Height, RenderState.CurrentDepth),
-        glm::vec3(X + Width, Y, RenderState.CurrentDepth)
+    vec3 Vertices[] = {
+        vec3(X        , Y         , RenderState.CurrentDepth),
+        vec3(X        , Y + Height, RenderState.CurrentDepth),
+        vec3(X + Width, Y + Height, RenderState.CurrentDepth),
+        vec3(X + Width, Y         , RenderState.CurrentDepth)
     };
 
-    glm::vec4 Colors[] = {
-        ColorRangeZeroOne(Color),
-        ColorRangeZeroOne(Color),
-        ColorRangeZeroOne(Color),
-        ColorRangeZeroOne(Color)
+    vec2 TexCoord[] = {
+        { 0.0f, 0.0f },
+        { 0.0f, 1.0f },
+        { 1.0f, 1.0f },
+        { 1.0f, 0.0f }
     };
+
+    vec4 VertColor = ColorRangeZeroOne(Color);
 
     u32 Indices[] = {
         RenderBatch->Buffer.VertexCount + 0,
@@ -393,9 +417,59 @@ global void DrawRect(s32 X, s32 Y, s32 Width, s32 Height, color Color)
         RenderBatch->Buffer.VertexCount + 3
     };
 
-    PushVertex(RenderBatch, &Vertices[0][0], &Colors[0][0]);
-    PushVertex(RenderBatch, &Vertices[1][0], &Colors[1][0]);
-    PushVertex(RenderBatch, &Vertices[2][0], &Colors[2][0]);
-    PushVertex(RenderBatch, &Vertices[3][0], &Colors[3][0]);
+    for (s32 i = 0; i < 4; i++)
+    {
+        PushVertex(RenderBatch, Vertices[i], TexCoord[i], VertColor);
+    }
+
     PushIndex(RenderBatch, Indices, 6);
+}
+
+global void DrawTexture(texture* Texture, const rect& SrcRect, const rect& DstRect, color Color)
+{
+    render_batch* RenderBatch = &RenderState.RenderBatches[R_TEXTURES];
+
+    if (RenderBatch->Buffer.VertexCount + 4 >= RenderBatch->Buffer.Capacity)
+    {
+        FlushRenderBatch(RenderBatch);
+    }
+
+    vec3 Vertices[] = {
+        vec3(DstRect.X                , DstRect.Y                 , RenderState.CurrentDepth),
+        vec3(DstRect.X                , DstRect.Y + DstRect.Height, RenderState.CurrentDepth),
+        vec3(DstRect.X + DstRect.Width, DstRect.Y + DstRect.Height, RenderState.CurrentDepth),
+        vec3(DstRect.X + DstRect.Width, DstRect.Y                 , RenderState.CurrentDepth)
+    };
+
+    f32 U = (f32)SrcRect.X / Texture->Width;
+    f32 V = (f32)SrcRect.Y / Texture->Height;
+    f32 W = (f32)SrcRect.Width / Texture->Width;
+    f32 H = (f32)SrcRect.Height / Texture->Height;
+
+    vec2 TexCoord[4] = {
+        { U    , V     },        
+        { U    , V + H },        
+        { U + W, V + H },        
+        { U + W, V     }
+    };
+
+    vec4 VertColor = ColorRangeZeroOne(Color);
+
+    u32 Indices[] = {
+        RenderBatch->Buffer.VertexCount + 0,
+        RenderBatch->Buffer.VertexCount + 1,
+        RenderBatch->Buffer.VertexCount + 2,
+        RenderBatch->Buffer.VertexCount + 0,
+        RenderBatch->Buffer.VertexCount + 2,
+        RenderBatch->Buffer.VertexCount + 3
+    };
+
+    for (s32 i = 0; i < 4; i++)
+    {
+        PushVertex(RenderBatch, Vertices[i], TexCoord[i], VertColor);
+    }
+
+    PushIndex(RenderBatch, Indices, 6);
+
+    RenderBatch->Texture = Texture->Handle;
 }

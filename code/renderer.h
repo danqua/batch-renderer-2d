@@ -13,6 +13,14 @@ struct color
     u8 A;
 };
 
+struct rect
+{
+    s32 X;
+    s32 Y;
+    s32 Width;
+    s32 Height;
+};
+
 enum attribute
 {
     ATTRIB_POSITION,
@@ -23,8 +31,8 @@ enum attribute
 
 struct vertex_buffer
 {
-    GLuint Vao;
-    GLuint Vbos[4];
+    u32 Vao;
+    u32 Vbos[4];
     f32 *Positions;
     f32 *TexCoords;
     f32 *Colors;
@@ -32,13 +40,20 @@ struct vertex_buffer
     u64 Capacity;
     u32 VertexCount;
     u32 ElementCount;
-    GLenum Usage;
+    s32 Usage;
+};
+
+struct texture
+{
+    u32 Handle;
+    s32 Width;
+    s32 Height;
 };
 
 struct render_batch
 {
-    GLenum Mode;
-    GLuint Texture;
+    s32 Mode;
+    u32 Texture;
     vertex_buffer Buffer;
 };
 
@@ -47,6 +62,7 @@ enum render_mode
     R_POINTS,
     R_LINES,
     R_TRIANGLES,
+    R_TEXTURES,
     R_MODE_COUNT
 };
 

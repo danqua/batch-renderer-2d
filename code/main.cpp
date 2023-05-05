@@ -27,6 +27,13 @@ typedef uint64_t u64;
 typedef float f32;
 typedef double f64;
 
+typedef glm::ivec2 ivec2;
+
+typedef glm::vec2 vec2;
+typedef glm::vec3 vec3;
+typedef glm::vec4 vec4;
+typedef glm::mat4 mat4;
+
 #include "renderer.h"
 
 #include "renderer.cpp"
@@ -38,9 +45,9 @@ global s32 MouseY = 0;
 
 struct moving_rect
 {
-    glm::vec2 Position;
-    glm::vec2 Dir;
-    glm::vec4 Color;
+    vec2 Position;
+    vec2 Dir;
+    vec4 Color;
     f32 Scale;
     f32 Speed;
 };
@@ -62,8 +69,8 @@ internal void UpdateMovingRects(moving_rect* Rects, s32 RectCount, f32 DeltaTime
         f32 WorldMouseX = (MouseX / 32.0f);
         f32 WorldMouseY = (MouseY / 32.0f);
 
-        glm::vec2 MousePosition = glm::vec2(WorldMouseX, WorldMouseY);
-        glm::vec2 LineMouseRect = Rects[i].Position - MousePosition;
+        vec2 MousePosition = vec2(WorldMouseX, WorldMouseY);
+        vec2 LineMouseRect = Rects[i].Position - MousePosition;
         f32 MaxDistance = 2.0f;
 
         f32 Distance2 = glm::dot(LineMouseRect, LineMouseRect);
@@ -149,7 +156,7 @@ int main(int Argc, char* Argv)
 
     InitRenderer(WindowWidth, WindowHeight);
 
-    s32 MovingRectsCount = 1000000;
+    s32 MovingRectsCount = 1000;
     moving_rect *MovingRects = (moving_rect*)malloc(sizeof *MovingRects * MovingRectsCount);
 
     for (s32 i = 0; i < MovingRectsCount; i++)
@@ -173,6 +180,8 @@ int main(int Argc, char* Argv)
         MovingRects[i].Scale = 0.25f;
         MovingRects[i].Speed = 10.0f;
     }
+
+    texture Texture = LoadTexture("sprite.png");
 
     f64 LastTime = glfwGetTime();
     f64 Timer = 0;
@@ -202,10 +211,14 @@ int main(int Argc, char* Argv)
                 
         BeginFrame();
         ClearScreen(COLOR_BLACK);
-        DrawMovingRects(MovingRects, MovingRectsCount);
+
+        rect SrcRect = { 0, 0, Texture.Width / 2, Texture.Height / 2 };
+        rect DstRect = { 32, 32, 32, 32 };
+        DrawTexture(&Texture, SrcRect, DstRect, COLOR_WHITE);
+        //DrawRect(0, 0, 32, 32, COLOR_WHITE);
+
+        //DrawMovingRects(MovingRects, MovingRectsCount);
         EndFrame();
-
-
         
         glfwSwapBuffers(Window);
         glfwPollEvents();
